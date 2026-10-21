@@ -49,6 +49,21 @@ k8s-guardrail-web     # open http://127.0.0.1:8000
 
 Paste a manifest, or load the valid / AI-hallucinated example, and click **Check manifest**.
 
+## AI agent: write manifests and repair them (optional)
+
+An [MCP](https://modelcontextprotocol.io) server exposes the checker as tools, and a Claude agent
+uses it: it drafts a manifest, validates it through MCP, fixes the reported errors, and retries
+until the manifest passes.
+
+```bash
+pip install -e ".[agent]"
+export ANTHROPIC_API_KEY=...        # live agent makes real, billable API calls
+k8s-guardrail-agent "A 3-replica nginx Deployment with a ClusterIP Service"
+```
+
+Use the checker from any MCP client with `{"command": "k8s-guardrail-mcp"}`. The tests cover the
+MCP server and the agent loop with a scripted fake Claude; the live agent run is manual.
+
 ## Docker
 
 ```bash
