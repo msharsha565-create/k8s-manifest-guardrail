@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>k8s-guardrail</title>
+<style>
+:root{--bg:#fff;--fg:#1a1a1a;--mut:#666;--line:#e3e3e3;--card:#f7f7f8;--acc:#2457d6}
+@media (prefers-color-scheme:dark){:root{--bg:#16171a;--fg:#ececec;--mut:#9a9a9a;--line:#33353a;--card:#1f2024;--acc:#7ea2ff}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif}
+main{max-width:900px;margin:0 auto;padding:24px 16px}h1{font-size:22px;margin:0 0 4px}p.sub{color:var(--mut);margin:0 0 20px}
+textarea{width:100%;height:280px;font:13px ui-monospace,monospace;padding:10px;background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:8px}
+button{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:9px 16px;font-size:14px;cursor:pointer;margin:10px 8px 0 0}
+button.alt{background:transparent;color:var(--acc);border:1px solid var(--acc)}
+#verdict{margin-top:18px;font-size:18px;font-weight:600}.pass{color:#12803a}.fail{color:#c0392b}
+.issue{border:1px solid var(--line);border-radius:8px;padding:8px 12px;margin-top:8px;background:var(--card)}
+.sev{font-size:12px;font-weight:700;margin-right:8px}.ERROR{color:#c0392b}.WARNING{color:#b7791f}
+.rule{font:12px ui-monospace,monospace;color:var(--mut)}#err{color:#c0392b;margin-top:10px}
+</style></head><body><main>
+<h1>k8s-guardrail</h1>
+<p class="sub">Paste a Kubernetes manifest (for example one written by an LLM) and check it.</p>
+<textarea id="m" spellcheck="false"></textarea>
+<div><button id="go">Check manifest</button>
+<button class="alt" data-s="good">Load valid example</button>
+<button class="alt" data-s="bad">Load AI-hallucinated example</button></div>
+<div id="err"></div><div id="verdict"></div><div id="issues"></div>
+<script>
+const $=id=>document.getElementById(id);
+const S={
+good:`apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+spec:
+  replicas: 3
+  selector:
+    matchLabels: {app: auth-service}
+  template:
+    metadata:
+      labels: {app: auth-service}
+    spec:
+      containers:
+        - name: auth
+          image: registry.example.com/auth-service:1.0.0
+          resources:
+            requests: {cpu: 250m, memory: 256Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+          securityContext:
+            allowPrivilegeEscalation: false
+`,
+bad:`apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: legacy-app
+spec:
+  template:
+    spec:
+      containers:
+        - name: web
+          image: nginx:latest
+          securityContext:
+            privileged: true
+`};
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{$('m').value=S[b.dataset.s];$('go').click()});
+$('go').onclick=async()=>{
+  $('err').textContent='';
+  try{
+    const r=await fetch('/api/check',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({manifest:$('m').value})});
+    const j=await r.json();if(!r.ok)throw new Error(j.error);
+    $('verdict').className=j.is_valid?'pass':'fail';
+    $('verdict').textContent=j.is_valid?`Valid (${j.issues.length} warning(s))`:`Invalid: ${j.issues.filter(i=>i.severity==='ERROR').length} error(s)`;
+    $('issues').innerHTML=j.issues.map(i=>`<div class="issue"><span class="sev ${i.severity}">${i.severity}</span><span class="rule">${esc(i.rule)} · ${esc(i.resource)}</span><div>${esc(i.message)}</div></div>`).join('');
+  }catch(e){$('err').textContent=e.message}};
+$('m').value=S.bad;
+</script></main></body></html>

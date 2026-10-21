@@ -40,6 +40,15 @@ if not result.is_valid:
     retry_with_feedback(result.to_dict())
 ```
 
+## Web demo
+
+```bash
+pip install -e ".[web]"
+k8s-guardrail-web     # open http://127.0.0.1:8000
+```
+
+Paste a manifest, or load the valid / AI-hallucinated example, and click **Check manifest**.
+
 ## Docker
 
 ```bash
