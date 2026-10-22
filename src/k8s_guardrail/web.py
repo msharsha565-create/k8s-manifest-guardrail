@@ -20,7 +20,13 @@ async def index(request: Request) -> HTMLResponse:
 
 
 async def api_check(request: Request) -> JSONResponse:
-    manifest = str((await request.json()).get("manifest", ""))
+    try:
+        body = await request.json()
+    except ValueError:
+        body = None
+    if not isinstance(body, dict):
+        return JSONResponse({"error": "Body must be a JSON object."}, status_code=400)
+    manifest = str(body.get("manifest", ""))
     if len(manifest) > MAX_CHARS:
         return JSONResponse({"error": "Manifest too large (max 100,000 characters)."}, 400)
     return JSONResponse(ManifestVerificationEngine().verify_string(manifest).to_dict())

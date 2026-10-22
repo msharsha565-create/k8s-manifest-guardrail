@@ -21,3 +21,8 @@ def test_check_valid_and_invalid():
 
 def test_check_rejects_oversized_input():
     assert client.post("/api/check", json={"manifest": "a" * 100_001}).status_code == 400
+
+
+def test_malformed_request_bodies_return_400():
+    assert client.post("/api/check", content=b"not json").status_code == 400
+    assert client.post("/api/check", json=["a"]).status_code == 400

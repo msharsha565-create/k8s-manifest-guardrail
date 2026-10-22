@@ -64,6 +64,9 @@ class ManifestVerificationEngine:
         if not kind or not doc.get("apiVersion"):
             add(Severity.ERROR, "MISSING_TYPE_META", "Both 'kind' and 'apiVersion' are required.")
             return issues
+        if not isinstance(kind, str) or not isinstance(doc["apiVersion"], str):
+            add(Severity.ERROR, "INVALID_TYPE_META", "'kind' and 'apiVersion' must be strings.")
+            return issues
         if name == "unnamed":
             add(Severity.ERROR, "MISSING_NAME", "metadata.name is required.")
 

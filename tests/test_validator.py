@@ -73,3 +73,28 @@ def test_cli_exit_codes_and_json(capsys):
     assert main([str(FIXTURES / "valid_deployment.yaml")]) == 0
     assert main([str(FIXTURES / "hallucinated_deployment.yaml"), "--format", "json"]) == 1
     assert '"is_valid": false' in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("manifest", [
+    "kind: [a]\napiVersion: v1",
+    "kind: {a: 1}\napiVersion: v1\nmetadata: {name: x}",
+    "kind: Deployment\napiVersion: [apps/v1]\nmetadata: {name: x}",
+    "kind: 5\napiVersion: 3",
+])
+def test_non_string_type_meta_is_reported_not_a_crash(manifest):
+    result = ManifestVerificationEngine().verify_string(manifest)
+    assert not result.is_valid
+    assert {i.rule for i in result.issues} == {"INVALID_TYPE_META"}
+
+
+@pytest.mark.parametrize("manifest", [
+    "kind: Deployment\napiVersion: apps/v1\nmetadata: x\nspec: 5",
+    ("kind: Deployment\napiVersion: apps/v1\nmetadata: {name: [x]}\n"
+     "spec: {selector: {matchLabels: {a: b}}, template: {spec: {containers: [1, null, 'x']}}}"),
+    ("kind: Deployment\napiVersion: apps/v1\nmetadata: {name: x}\nspec:\n"
+     " selector: {matchLabels: {a: b}}\n template: {spec: {containers: [{name: a, image: [1],"
+     " resources: 5, securityContext: 7}]}}"),
+    "---\n---\n",
+])
+def test_malformed_but_valid_yaml_never_crashes(manifest):
+    ManifestVerificationEngine().verify_string(manifest)
