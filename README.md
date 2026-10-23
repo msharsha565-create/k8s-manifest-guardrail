@@ -63,18 +63,32 @@ pip install -e ".[agent]"
 export ANTHROPIC_API_KEY=...
 k8s-guardrail-agent "A 3-replica nginx Deployment with a ClusterIP Service"
 
-# Gemini, via Google's OpenAI-compatible endpoint (use a current model name)
+# Gemini, via Google's OpenAI-compatible endpoint (Gemini 2.5 is retired; use a current model)
 GEMINI_API_KEY=... k8s-guardrail-agent "A 3-replica nginx Deployment with a ClusterIP Service" \
-    --provider openai --api-key-env GEMINI_API_KEY --model <gemini-model> \
+    --provider openai --api-key-env GEMINI_API_KEY --model gemini-3.5-flash-lite \
     --base-url https://generativelanguage.googleapis.com/v1beta/openai
 ```
 
 Use the checker from any MCP client with `{"command": "k8s-guardrail-mcp"}`.
 
+**Live result** (Gemini `gemini-3.5-flash-lite`, free tier, 2026-10-23, one run, ~6 s): given
+"A 3-replica nginx Deployment with a ClusterIP Service", the agent called the checker through MCP
+and returned a Deployment (`replicas: 3`, selector, resource limits, a hardened `securityContext`)
+plus a ClusterIP Service. I re-checked that output with `k8s-guardrail`: exit 0, one WARNING
+(`UNPINNED_IMAGE`, because the model used `nginx:latest`). It passed on the first draft, so the
+repair loop did not trigger in this run. The checker is static: it does not know that
+`runAsNonRoot` with `readOnlyRootFilesystem` may stop the stock nginx image from starting, and the
+manifest was never applied to a cluster.
+
+Free-tier quotas matter: on this key `gemini-3.1-flash-lite` and `gemini-3.5-flash` returned
+intermittent 429s (daily request caps of 500 and 20) while `gemini-3.5-flash-lite` did not. A
+failure now prints `error: ...` with the provider's message instead of a traceback.
+
 **Verified vs not verified:** the MCP server and both agent loops are tested against scripted
 fake models, and the OpenAI-compatible client against a mocked transport (request format, retries
-on 429/5xx, error bodies, provider metadata echoed back unchanged). A live run against a real
-model has not been recorded here yet.
+on 429/5xx, error bodies, provider metadata echoed back unchanged). The Gemini run above is a
+single live run. The Claude (Anthropic) path has not been run live, and repair after a rejected
+draft has not been observed live.
 
 ## Docker
 
