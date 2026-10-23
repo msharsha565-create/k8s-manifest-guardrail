@@ -51,18 +51,30 @@ Paste a manifest, or load the valid / AI-hallucinated example, and click **Check
 
 ## AI agent: write manifests and repair them (optional)
 
-An [MCP](https://modelcontextprotocol.io) server exposes the checker as tools, and a Claude agent
+An [MCP](https://modelcontextprotocol.io) server exposes the checker as tools, and an LLM agent
 uses it: it drafts a manifest, validates it through MCP, fixes the reported errors, and retries
-until the manifest passes.
+until the manifest passes. It runs on Claude by default, or on any OpenAI-compatible
+tool-calling API (OpenAI, Gemini, Ollama, vLLM).
 
 ```bash
 pip install -e ".[agent]"
-export ANTHROPIC_API_KEY=...        # live agent makes real, billable API calls
+
+# Claude (default); makes real, billable API calls
+export ANTHROPIC_API_KEY=...
 k8s-guardrail-agent "A 3-replica nginx Deployment with a ClusterIP Service"
+
+# Gemini, via Google's OpenAI-compatible endpoint (use a current model name)
+GEMINI_API_KEY=... k8s-guardrail-agent "A 3-replica nginx Deployment with a ClusterIP Service" \
+    --provider openai --api-key-env GEMINI_API_KEY --model <gemini-model> \
+    --base-url https://generativelanguage.googleapis.com/v1beta/openai
 ```
 
-Use the checker from any MCP client with `{"command": "k8s-guardrail-mcp"}`. The tests cover the
-MCP server and the agent loop with a scripted fake Claude; the live agent run is manual.
+Use the checker from any MCP client with `{"command": "k8s-guardrail-mcp"}`.
+
+**Verified vs not verified:** the MCP server and both agent loops are tested against scripted
+fake models, and the OpenAI-compatible client against a mocked transport (request format, retries
+on 429/5xx, error bodies, provider metadata echoed back unchanged). A live run against a real
+model has not been recorded here yet.
 
 ## Docker
 
